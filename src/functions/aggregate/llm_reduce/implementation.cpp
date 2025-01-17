@@ -18,7 +18,7 @@ int LlmReduce::GetAvailableTokens(const AggregateFunctionType& function_type) {
 
 nlohmann::json LlmReduce::ReduceBatch(const nlohmann::json& tuples, const AggregateFunctionType& function_type) {
     nlohmann::json data;
-    auto prompt = PromptManager::Render(user_query, tuples, function_type);
+    const auto prompt = PromptManager::Render(user_query, tuples, function_type, model.GetModelDetails().tuple_format);
     auto response = model.CallComplete(prompt);
     return response["output"];
 };
@@ -33,11 +33,13 @@ nlohmann::json LlmReduce::ReduceLoop(const std::vector<nlohmann::json>& tuples,
     do {
         accumulated_tuples_tokens = Tiktoken::GetNumTokens(batch_tuples.dump());
         accumulated_tuples_tokens +=
-            Tiktoken::GetNumTokens(PromptManager::ConstructMarkdownHeader(tuples[start_index]));
+            Tiktoken::GetNumTokens(PromptManager::ConstructNumTuples(static_cast<int>(tuples.size())));
+        accumulated_tuples_tokens +=
+            Tiktoken::GetNumTokens(PromptManager::ConstructInputTuplesHeader(tuples[start_index]));
         while (accumulated_tuples_tokens < static_cast<unsigned int>(available_tokens) &&
                start_index < static_cast<int>(tuples.size())) {
             const auto num_tokens =
-                Tiktoken::GetNumTokens(PromptManager::ConstructMarkdownSingleTuple(tuples[start_index]));
+                Tiktoken::GetNumTokens(PromptManager::ConstructSingleInputTuple(tuples[start_index]));
             if (accumulated_tuples_tokens + num_tokens > static_cast<unsigned int>(available_tokens)) {
                 break;
             }

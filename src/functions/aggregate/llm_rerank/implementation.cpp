@@ -19,7 +19,8 @@ int LlmRerank::GetAvailableTokens() {
 
 std::vector<int> LlmRerank::RerankBatch(const nlohmann::json& tuples) {
     nlohmann::json data;
-    auto prompt = PromptManager::Render(user_query, tuples, AggregateFunctionType::RERANK);
+    auto prompt =
+        PromptManager::Render(user_query, tuples, AggregateFunctionType::RERANK, model.GetModelDetails().tuple_format);
     auto response = model.CallComplete(prompt);
     return response["ranking"].get<std::vector<int>>();
 };
@@ -40,9 +41,12 @@ nlohmann::json LlmRerank::SlidingWindow(nlohmann::json& tuples) {
         next_tuples.clear();
         batch_size = half_batch;
         accumulated_rows_tokens = Tiktoken::GetNumTokens(window_tuples.dump());
-        accumulated_rows_tokens += Tiktoken::GetNumTokens(PromptManager::ConstructMarkdownHeader(tuples[start_index]));
+        accumulated_rows_tokens +=
+            Tiktoken::GetNumTokens(PromptManager::ConstructNumTuples(static_cast<int>(tuples.size())));
+        accumulated_rows_tokens +=
+            Tiktoken::GetNumTokens(PromptManager::ConstructInputTuplesHeader(tuples[start_index]));
         while (available_tokens - accumulated_rows_tokens > 0 && start_index >= 0) {
-            auto num_tokens = Tiktoken::GetNumTokens(PromptManager::ConstructMarkdownSingleTuple(tuples[start_index]));
+            auto num_tokens = Tiktoken::GetNumTokens(PromptManager::ConstructSingleInputTuple(tuples[start_index]));
             if (accumulated_rows_tokens + num_tokens > static_cast<unsigned int>(available_tokens)) {
                 break;
             }

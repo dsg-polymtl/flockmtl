@@ -38,35 +38,86 @@ std::string PromptManager::ReplaceSection(const std::string& prompt_template, co
     return prompt;
 }
 
-std::string PromptManager::ConstructMarkdownHeader(const nlohmann::json& tuple) {
-    std::string header_markdown = "|";
-    for (const auto& key : tuple.items()) {
-        header_markdown += key.key() + " | ";
+std::string PromptManager::ConstructInputTuplesHeader(const nlohmann::json& tuple, const std::string& tuple_format) {
+    switch (const auto format = TUPLE_FORMAT.at(tuple_format)) {
+    case TupleFormat::XML:
+        return ConstructInputTuplesHeaderXML(tuple);
+    case TupleFormat::Markdown:
+        return ConstructInputTuplesHeaderMarkdown(tuple);
+    case TupleFormat::JSON:
+        return "";
+    default:
+        throw std::runtime_error("Invalid tuple format provided `" + tuple_format + "`");
     }
-    header_markdown += "\n";
-    for (auto i = 0; i < static_cast<int>(tuple.size()); i++) {
-        header_markdown += "|---";
-    }
-    header_markdown += "|\n";
-    return header_markdown;
 }
 
-std::string PromptManager::ConstructMarkdownSingleTuple(const nlohmann::json& tuple) {
-    std::string tuple_markdown = "|";
+std::string PromptManager::ConstructInputTuplesHeaderXML(const nlohmann::json& tuple) {
+    auto header = std::string("<tuple>");
     for (const auto& key : tuple.items()) {
-        tuple_markdown += key.value().dump() + " | ";
+        header += "<col>" + key.key() + "</col>";
     }
-    tuple_markdown += "\n";
-    return tuple_markdown;
+    header += "</tuple>\n";
+    return header;
 }
 
-std::string PromptManager::ConstructMarkdownArrayTuples(const nlohmann::json& tuples) {
-    std::string tuples_markdown = "";
-    tuples_markdown += PromptManager::ConstructMarkdownHeader(tuples[0]);
+std::string PromptManager::ConstructInputTuplesHeaderMarkdown(const nlohmann::json& tuple) {
+    auto header = std::string("|");
+    for (const auto& key : tuple.items()) {
+        header += key.key() + "|";
+    }
+    header += "\n|";
+    for (const auto& key : tuple.items()) {
+        header += "---|";
+    }
+    header += "\n";
+    return header;
+}
+
+std::string PromptManager::ConstructSingleInputTuple(const nlohmann::json& tuple, const std::string& tuple_format) {
+    switch (const auto format = TUPLE_FORMAT.at(tuple_format)) {
+    case TupleFormat::XML:
+        return ConstructSingleInputTupleXML(tuple);
+    case TupleFormat::Markdown:
+        return ConstructSingleInputTupleMarkdown(tuple);
+    case TupleFormat::JSON:
+        return ConstructSingleInputTupleJSON(tuple);
+    default:
+        throw std::runtime_error("Invalid tuple format provided `" + tuple_format + "`");
+    }
+}
+
+std::string PromptManager::ConstructSingleInputTupleXML(const nlohmann::json& tuple) {
+    auto tuple_str = std::string("<tuple>");
+    for (const auto& key : tuple.items()) {
+        tuple_str += "<col>" + key.value().dump() + "</col>";
+    }
+    tuple_str += "</tuple>\n";
+    return tuple_str;
+}
+
+std::string PromptManager::ConstructSingleInputTupleMarkdown(const nlohmann::json& tuple) {
+    auto tuple_str = std::string("|");
+    for (const auto& key : tuple.items()) {
+        tuple_str += key.value().dump() + "|";
+    }
+    tuple_str += "\n";
+    return tuple_str;
+}
+
+std::string PromptManager::ConstructSingleInputTupleJSON(const nlohmann::json& tuple) { return tuple.dump() + "\n"; }
+
+std::string PromptManager::ConstructNumTuples(const int num_tuples) {
+    return "- The Number of Tuples to Generate Responses for: " + std::to_string(num_tuples) + "\n\n";
+}
+
+std::string PromptManager::ConstructInputTuples(const nlohmann::json& tuples, const std::string& tuple_format) {
+    auto tuples_str = std::string("");
+    tuples_str += PromptManager::ConstructNumTuples(static_cast<int>(tuples.size()));
+    tuples_str += PromptManager::ConstructInputTuplesHeader(tuples[0], tuple_format);
     for (const auto& tuple : tuples) {
-        tuples_markdown += PromptManager::ConstructMarkdownSingleTuple(tuple);
+        tuples_str += PromptManager::ConstructSingleInputTuple(tuple, tuple_format);
     }
-    return tuples_markdown;
+    return tuples_str;
 }
 
 PromptDetails PromptManager::CreatePromptDetails(const nlohmann::json& prompt_details_json) {
